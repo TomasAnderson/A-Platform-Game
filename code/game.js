@@ -1,13 +1,13 @@
 var simpleLevelPlan = [
-  "                      ",
-  "                      ",
-  "  x              = x  ",
-  "  x         o o    x  ",
-  "  x @      xxxxx   x  ",
-  "  xxxxx            x  ",
-  "      x!!!!!!!!!!!!x  ",
-  "      xxxxxxxxxxxxxx  ",
-  "                      "
+"                      ",
+"                      ",
+"  x              = x  ",
+"  x         o o    x  ",
+"  x @      xxxxx   x  ",
+"  xxxxx            x  ",
+"      x!!!!!!!!!!!!x  ",
+"      xxxxxxxxxxxxxx  ",
+"                      "
 ];
 
 function Level(plan) {
@@ -122,7 +122,7 @@ DOMDisplay.prototype.drawActors = function() {
   var wrap = elt("div");
   this.level.actors.forEach(function(actor) {
     var rect = wrap.appendChild(elt("div",
-                                    "actor " + actor.type));
+      "actor " + actor.type));
     rect.style.width = actor.size.x * scale + "px";
     rect.style.height = actor.size.y * scale + "px";
     rect.style.left = actor.pos.x * scale + "px";
@@ -150,7 +150,7 @@ DOMDisplay.prototype.scrollPlayerIntoView = function() {
 
   var player = this.level.player;
   var center = player.pos.plus(player.size.times(0.5))
-                 .times(scale);
+  .times(scale);
 
   if (center.x < left + margin)
     this.wrap.scrollLeft = center.x - margin;
@@ -188,10 +188,10 @@ Level.prototype.actorAt = function(actor) {
   for (var i = 0; i < this.actors.length; i++) {
     var other = this.actors[i];
     if (other != actor &&
-        actor.pos.x + actor.size.x > other.pos.x &&
-        actor.pos.x < other.pos.x + other.size.x &&
-        actor.pos.y + actor.size.y > other.pos.y &&
-        actor.pos.y < other.pos.y + other.size.y)
+      actor.pos.x + actor.size.x > other.pos.x &&
+      actor.pos.x < other.pos.x + other.size.x &&
+      actor.pos.y + actor.size.y > other.pos.y &&
+      actor.pos.y < other.pos.y + other.size.y)
       return other;
   }
 };
@@ -302,61 +302,92 @@ function trackKeys(codes) {
   var pressed = Object.create(null);
   function handler(event) {
     if (codes.hasOwnProperty(event.keyCode)) {
-      var down = event.type == "keydown";
-      pressed[codes[event.keyCode]] = down;
+      var state = event.type == "keydown";
+      pressed[codes[event.keyCode]] = state;
       event.preventDefault();
     }
   }
   addEventListener("keydown", handler);
   addEventListener("keyup", handler);
-  return pressed;
-}
 
-function runAnimation(frameFunc) {
-  var lastTime = null;
-  function frame(time) {
-    var stop = false;
-    if (lastTime != null) {
-      var timeStep = Math.min(time - lastTime, 100) / 1000;
-      stop = frameFunc(timeStep) === false;
-    }
-    lastTime = time;
-    if (!stop)
-      requestAnimationFrame(frame);
+    // This is new -- it allows runLevel to clean up its handlers
+    pressed.unregister = function() {
+      removeEventListener("keydown", handler);
+      removeEventListener("keyup", handler);
+    };
+    // End of new code
+    return pressed;
   }
-  requestAnimationFrame(frame);
-}
-
-var arrows = trackKeys(arrowCodes);
-
-function runLevel(level, Display, andThen) {
-  var display = new Display(document.body, level);
-  runAnimation(function(step) {
-    level.animate(step, arrows);
-    display.drawFrame(step);
-    if (level.isFinished()) {
-      display.clear();
-      if (andThen)
-        andThen(level.status);
-      return false;
+  function runAnimation(frameFunc) {
+    var lastTime = null;
+    function frame(time) {
+      var stop = false;
+      if (lastTime != null) {
+        var timeStep = Math.min(time - lastTime, 100) / 1000;
+        stop = frameFunc(timeStep) === false;
+      }
+      lastTime = time;
+      if (!stop)
+        requestAnimationFrame(frame);
     }
-  });
-}
+    requestAnimationFrame(frame);
+  }
 
-function runGame(plans, Display) {
-  function startLevel(n, lives) {
-    runLevel(new Level(plans[n]), Display, function(status) {
-      if (status == "lost"){
-        if (lives > 0) startLevel(n, lives - 1);
-        else {
-          console.log("Game Over");
-          startLevel(0, 3);
+  var arrows = trackKeys(arrowCodes);
+
+  function runLevel(level, Display, andThen) {
+    var display = new Display(document.body, level);
+    var running = "yes";
+    function handleKey(event) {
+      if (event.keyCode == 27) {
+        if (running == "no") {
+          running = "yes";
+          runAnimation(animation);
+        } else if (running == "pausing") {
+          running = "yes";
+        } else if (running == "yes") {
+          running = "pausing";
         }
-      } else if (n < plans.length - 1)
-        startLevel(n + 1, lives);
-      else
-        console.log("You win!");
-    });
+      }
+    }
+    addEventListener("keydown", handleKey);
+    var arrows = trackKeys(arrowCodes);
+
+    function animation(step) {
+      if (running == "pausing") {
+        running = "no";
+        return false;
+      }
+
+      level.animate(step, arrows);
+      display.drawFrame(step);
+      if (level.isFinished()) {
+        display.clear();
+        // Here we remove all our event handlers
+        removeEventListener("keydown", handleKey);
+        arrows.unregister(); // (see change to trackKeys below)
+        if (andThen)
+          andThen(level.status);
+        return false;
+      }
+    }
+    runAnimation(animation);
   }
-  startLevel(0, 3);
-}
+
+  function runGame(plans, Display) {
+    function startLevel(n, lives) {
+      runLevel(new Level(plans[n]), Display, function(status) {
+        if (status == "lost"){
+          if (lives > 0) startLevel(n, lives - 1);
+          else {
+            console.log("Game Over");
+            startLevel(0, 3);
+          }
+        } else if (n < plans.length - 1)
+        startLevel(n + 1, lives);
+        else
+          console.log("You win!");
+      });
+    }
+    startLevel(0, 3);
+  }
