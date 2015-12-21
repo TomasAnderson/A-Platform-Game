@@ -2,12 +2,12 @@
 <head>
 	<title>A platform Game</title>
 	<script src="code/game.js"></script>
+	<script src="code/game_levels.js"></script>
 	<link rel="stylesheet" href="css/game.css">
 </head>
 <body>
   <script>
-  	var simpleLevel = new Level(simpleLevelPlan);
-  	var display = new DOMDisplay(document.body, simpleLevel);
+  	runGame(GAME_LEVELS, DOMDisplay);
   </script>
 </body>
 </html>
